@@ -18,21 +18,25 @@ The infrastructure is organized into modular components that can be deployed ind
 ## 📁 Repository Structure
 
 ```
-├── ctrl.sh                    # Main control script for component management
-├── install.sh                 # Installation script for dependencies
-├── remove.sh                  # Complete infrastructure cleanup script
-├── instructions.txt           # Basic usage instructions
-├── modules/                   # Terraform modules from Google Cluster Toolkit
-├── ntt/                       # NTT-specific configurations and scripts
-│   ├── ntt-research.yml       # Main blueprint configuration
-│   ├── config-manager.sh      # Component existence checker
-│   ├── hpc-slurm/            # SLURM cluster setup scripts
-│   ├── hpc-pbs/              # PBS cluster setup scripts
-│   ├── ood/                  # Open OnDemand configuration
-│   └── jupyter/              # Jupyter server setup
-├── ntt-research/             # Generated Terraform configurations
-├── toolkit/                  # Google Cluster Toolkit (gcluster binary)
-└── tools/                    # Additional utility scripts
+├── .devcontainer/            # DevContainer configuration (recommended dev environment)
+│   ├── Dockerfile            # Container image definition
+│   ├── devcontainer.json     # VS Code DevContainer configuration
+│   └── setup.sh              # Container setup script
+├── ctrl.sh                   # Main control script for component management
+├── install.sh                # Installation script for dependencies (local setup)
+├── remove.sh                 # Complete infrastructure cleanup script
+├── instructions.txt          # Basic usage instructions
+├── modules/                  # Terraform modules from Google Cluster Toolkit
+├── ntt/                      # NTT-specific configurations and scripts
+│   ├── ntt-research.yml      # Main blueprint configuration
+│   ├── config-manager.sh     # Component existence checker
+│   ├── hpc-slurm/           # SLURM cluster setup scripts
+│   ├── hpc-pbs/             # PBS cluster setup scripts
+│   ├── ood/                 # Open OnDemand configuration
+│   └── jupyter/             # Jupyter server setup
+├── ntt-research/            # Generated Terraform configurations
+├── toolkit/                 # Google Cluster Toolkit (gcluster binary)
+└── tools/                   # Additional utility scripts
 ```
 
 ## 🚀 Quick Start
