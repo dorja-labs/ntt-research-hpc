@@ -229,6 +229,124 @@ The main interface is the `ctrl.sh` script:
   - Remote desktop capabilities
 - **Dependencies**: Network
 
+## 🐳 DevContainer Development Environment
+
+### Why Use the DevContainer?
+
+The DevContainer provides a **consistent, reproducible development environment** that eliminates "works on my machine" issues. It's the **recommended approach** for:
+
+- **New contributors** - Get started immediately without complex setup
+- **Cross-platform development** - Same environment on Windows, macOS, and Linux
+- **CI/CD consistency** - Match your local environment with automated pipelines
+- **Dependency management** - All tools pre-installed and configured
+
+### DevContainer Features
+
+#### Pre-installed Tools
+- **Google Cloud SDK** (`gcloud`) - Latest version with all components
+- **Terraform** - Latest stable version
+- **Google Cluster Toolkit** (`gcluster`) - Pre-compiled and ready to use
+- **Development Tools**: `git`, `curl`, `wget`, `jq`, `yq`, `vim`, `nano`
+- **Shell Environment**: Zsh with Oh My Zsh and useful plugins
+
+#### Container Specifications
+- **Base Image**: Ubuntu 22.04 LTS
+- **Architecture**: Multi-arch support (amd64/arm64)
+- **User**: Non-root user with sudo access
+- **Workspace**: `/workspaces/ntt-research`
+
+#### VS Code Integration
+- **Extensions**: Automatically installs recommended extensions
+- **Settings**: Pre-configured for optimal development experience
+- **Terminal**: Integrated terminal with proper shell configuration
+
+### DevContainer Configuration Files
+
+#### `.devcontainer/devcontainer.json`
+Main configuration file that defines:
+- Container image and build settings
+- VS Code extensions and settings
+- Port forwarding and volume mounts
+- Post-creation commands
+
+#### `.devcontainer/Dockerfile`
+Container image definition with:
+- Base Ubuntu 22.04 image
+- System package installations
+- User configuration and permissions
+
+#### `.devcontainer/setup.sh`
+Post-creation setup script that:
+- Installs and configures development tools
+- Sets up shell environment
+- Configures Git and other tools
+- Compiles Google Cluster Toolkit
+
+### Working with the DevContainer
+
+#### First Time Setup
+1. **Install Prerequisites**:
+   - Docker Desktop (Windows/macOS) or Docker Engine (Linux)
+   - Visual Studio Code
+   - Dev Containers extension for VS Code
+
+2. **Open Repository**:
+   ```bash
+   git clone <repository-url>
+   code ntt-research-infrastructure
+   ```
+
+3. **Start DevContainer**:
+   - VS Code will detect the DevContainer configuration
+   - Click "Reopen in Container" when prompted
+   - Or use Command Palette: `Dev Containers: Reopen in Container`
+
+#### Daily Workflow
+```bash
+# Inside the DevContainer terminal
+
+# Authenticate with Google Cloud (one-time setup)
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
+gcloud auth application-default login
+
+# Use the infrastructure tools
+./ctrl.sh status all
+./ctrl.sh create network
+gcluster --version
+
+# All tools are pre-installed and ready to use!
+```
+
+#### Customizing the DevContainer
+
+You can customize the DevContainer by modifying:
+
+- **`.devcontainer/devcontainer.json`** - VS Code settings, extensions, port forwarding
+- **`.devcontainer/Dockerfile`** - Additional system packages or tools
+- **`.devcontainer/setup.sh`** - Additional setup commands or configurations
+
+#### Troubleshooting DevContainer Issues
+
+**Container won't start**:
+```bash
+# Rebuild the container
+# Command Palette: "Dev Containers: Rebuild Container"
+```
+
+**Missing tools**:
+```bash
+# Re-run setup script
+./.devcontainer/setup.sh
+```
+
+**Permission issues**:
+```bash
+# Check user permissions
+whoami
+sudo -l
+```
+
 ## 🔧 Scripts and Tools
 
 ### Main Control Script (`ctrl.sh`)
@@ -438,30 +556,108 @@ terraform show
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+We welcome contributions! The DevContainer makes it easy to get started with development.
+
+### Getting Started with Development
+
+1. **Fork the repository** on GitHub
+2. **Clone your fork**:
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/ntt-research-infrastructure.git
+   cd ntt-research-infrastructure
+   ```
+3. **Open in DevContainer** (Recommended):
+   - Open in VS Code
+   - Click "Reopen in Container" when prompted
+   - All tools will be automatically available!
+
+4. **Create a feature branch**:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+5. **Make your changes** using the pre-configured environment
+6. **Test thoroughly** using the available tools
+7. **Submit a pull request**
 
 ### Development Guidelines
-- Follow existing code style
-- Add appropriate documentation
-- Test all components
-- Update this README for new features
+
+#### Code Standards
+- Follow existing code style and conventions
+- Use meaningful commit messages
+- Add appropriate documentation for new features
+- Test all components before submitting
+
+#### Testing Your Changes
+```bash
+# Inside the DevContainer
+
+# Test infrastructure deployment
+./ctrl.sh create network
+./ctrl.sh status network
+
+# Validate Terraform configurations
+cd ntt-research/network
+terraform validate
+
+# Test scripts
+./ntt/test-nfs-workflow.sh
+```
+
+#### Documentation Updates
+- Update this README for new features or changes
+- Add inline comments for complex scripts
+- Update component documentation in `ntt/` directories
+- Include troubleshooting information for new components
+
+### Development Environment Benefits
+
+Using the DevContainer for development provides:
+- **Consistent Environment**: Same tools and versions for all contributors
+- **Quick Setup**: No need to install dependencies locally
+- **Isolation**: Development environment doesn't affect your host system
+- **Pre-configured Tools**: All necessary tools ready to use immediately
 
 ## 📄 License
 
-This project is licensed under the Apache License 2.0 - see the LICENSE file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+**Copyright 2024 NTT Data Australia Pty Ltd**
+
+This project incorporates several open source components including:
+- Google Cluster Toolkit (Apache 2.0)
+- Terraform (Mozilla Public License 2.0)
+- SLURM Workload Manager (GPL v2.0)
+- Open OnDemand (MIT License)
+- Jupyter (BSD 3-Clause)
+- PBS Professional (AGPL v3.0)
+- Kubernetes (Apache 2.0)
+
+See the [LICENSE](LICENSE) file for complete third-party software notices and license information.
 
 ## 🆘 Support
 
 For issues and questions:
-1. Check the troubleshooting section
-2. Review component logs
-3. Consult Google Cloud documentation
-4. Open an issue in this repository
+1. **Use the DevContainer** - Eliminates most environment-related issues
+2. Check the troubleshooting section
+3. Review component logs
+4. Consult Google Cloud documentation
+5. Open an issue in this repository
+
+### Getting Help
+
+**Environment Issues**: If you're having problems with dependencies or tool versions, try using the DevContainer which provides a known-good environment.
+
+**Infrastructure Issues**: Use the built-in debugging tools:
+```bash
+# Inside DevContainer
+./ctrl.sh status all
+./ntt/debug-network.sh
+./ntt/test-nfs-workflow.sh
+```
 
 ---
 
 **Note**: This infrastructure is designed for research and development purposes. For production deployments, additional security hardening and monitoring should be implemented.
+
+**Recommended**: Use the DevContainer for the best development and operational experience.
