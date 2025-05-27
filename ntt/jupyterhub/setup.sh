@@ -59,6 +59,10 @@ fi
 
 print_status "Found SLURM head node at IP: $SLURM_HEAD_IP"
 
+# Copy SLURM integration script to JupyterHub instance
+print_status "Copying SLURM integration script to JupyterHub..."
+gcloud compute scp ntt/jupyterhub/slurm-integration.sh ntt-research-jupyterhub-0:/tmp/slurm-integration.sh --zone=us-central1-a
+
 # SSH into JupyterHub instance and configure it
 print_status "Configuring JupyterHub with BatchSpawner..."
 
@@ -159,14 +163,17 @@ sudo mkdir -p /shared/notebooks
 sudo chmod 755 /shared/jupyterhub-logs
 sudo chmod 755 /shared/notebooks
 
-# Copy SLURM configuration from head node
-echo '[$(date)] Setting up SLURM client configuration...'
-sudo mkdir -p /etc/slurm
-if timeout 30 scp -o StrictHostKeyChecking=no $SLURM_HEAD_IP:/etc/slurm/slurm.conf /tmp/slurm.conf 2>/dev/null; then
-    sudo mv /tmp/slurm.conf /etc/slurm/slurm.conf
-    echo '[$(date)] SLURM configuration copied successfully'
+# Run SLURM integration script
+echo '[$(date)] Running SLURM integration script...'
+if [ -f /tmp/slurm-integration.sh ]; then
+    chmod +x /tmp/slurm-integration.sh
+    bash /tmp/slurm-integration.sh
+    echo '[$(date)] SLURM integration completed'
 else
-    echo '[$(date)] Warning: Could not copy SLURM config, creating basic one'
+    echo '[$(date)] Warning: SLURM integration script not found, setting up basic configuration'
+
+    # Fallback: Basic SLURM configuration
+    sudo mkdir -p /etc/slurm
     sudo tee /etc/slurm/slurm.conf > /dev/null << 'SLURMEOF'
 ClusterName=ntt-research-slurm
 SlurmctldHost=ntt-research-hpc-slurm-0
@@ -200,18 +207,6 @@ NodeName=ntt-research-hpc-slurm-1 NodeAddr=ntt-research-hpc-slurm-1 CPUs=4 RealM
 # Partition definitions
 PartitionName=debug Nodes=ntt-research-hpc-slurm-0,ntt-research-hpc-slurm-1 Default=YES MaxTime=INFINITE State=UP
 SLURMEOF
-fi
-
-# Copy MUNGE key from head node
-echo '[$(date)] Setting up MUNGE authentication...'
-sudo mkdir -p /etc/munge
-if timeout 30 scp -o StrictHostKeyChecking=no $SLURM_HEAD_IP:/etc/munge/munge.key /tmp/munge.key 2>/dev/null; then
-    sudo mv /tmp/munge.key /etc/munge/munge.key
-    sudo chown munge:munge /etc/munge/munge.key
-    sudo chmod 400 /etc/munge/munge.key
-    echo '[$(date)] MUNGE key copied successfully'
-else
-    echo '[$(date)] Warning: Could not copy MUNGE key'
 fi
 
 # Create systemd service for JupyterHub

@@ -4,7 +4,7 @@
 set -e
 
 # Setup logging
-LOG_FILE="/tmp/slurm_ood_setup-$(date +%Y%m%d-%H%M%S).log"
+LOG_FILE="/tmp/slurm_jupyterhub_setup-$(date +%Y%m%d-%H%M%S).log"
 exec 1> >(tee -a "$LOG_FILE")
 exec 2> >(tee -a "$LOG_FILE" >&2)
 
@@ -25,7 +25,7 @@ check_status() {
     fi
 }
 
-log "Starting SLURM and OOD integration setup from control machine..."
+log "Starting SLURM and JupyterHub integration setup from control machine..."
 
 # Create a temporary directory for staging files
 TEMP_DIR=$(mktemp -d)
@@ -64,11 +64,15 @@ else
     FILESTORE_IP=""
 fi
 
-log "Getting OOD node IP..."
-OOD_NODE_NAME="ntt-research-ood-0"
-OOD_IP=$(gcloud compute instances describe "${OOD_NODE_NAME}" --zone=us-central1-a --format='get(networkInterfaces[0].accessConfigs[0].natIP)' --quiet)
-check_status "Get OOD node IP for ${OOD_NODE_NAME}"
-log "OOD node IP: ${OOD_IP}"
+log "Getting JupyterHub node IP..."
+JUPYTERHUB_NODE_NAME="ntt-research-jupyterhub-0"
+if JUPYTERHUB_IP=$(gcloud compute instances describe "${JUPYTERHUB_NODE_NAME}" --zone=us-central1-a --format='get(networkInterfaces[0].accessConfigs[0].natIP)' --quiet 2>/dev/null); then
+    check_status "Get JupyterHub node IP for ${JUPYTERHUB_NODE_NAME}"
+    log "JupyterHub node IP: ${JUPYTERHUB_IP}"
+else
+    log "⚠ Warning: JupyterHub node not found. SLURM will be configured without JupyterHub integration."
+    JUPYTERHUB_IP=""
+fi
 
 # --- SLURM Head Node Setup ---
 log "--- Initiating SLURM head node setup (${SLURM_HEAD_NODE_NAME}) ---"
@@ -108,73 +112,49 @@ gcloud compute ssh "${SLURM_COMPUTE_NODE_NAME}" --zone=us-central1-a --command="
 check_status "Execute script on SLURM compute node"
 log "--- SLURM compute node setup script finished. Check its log on ${SLURM_COMPUTE_NODE_NAME} in /tmp/ for details. ---"
 
-# --- OOD Node Configuration for SLURM Integration ---
-log "--- Initiating OOD node (${OOD_NODE_NAME}) configuration for SLURM integration ---"
+# --- JupyterHub Node Configuration for SLURM Integration ---
+if [ -n "${JUPYTERHUB_IP}" ]; then
+    log "--- Initiating JupyterHub node (${JUPYTERHUB_NODE_NAME}) configuration for SLURM integration ---"
 
-LOCAL_OOD_SLURM_CLUSTER_CONFIG="ntt/ood/config/slurm.yml"
-TEMP_OOD_SLURM_CLUSTER_CONFIG="${TEMP_DIR}/slurm.ood.yml"
+    log "JupyterHub Node: Installing munge and slurm-client..."
+    gcloud compute ssh "${JUPYTERHUB_NODE_NAME}" --zone=us-central1-a --command="sudo apt-get update -y && sudo apt-get install -y munge libmunge-dev slurm-client=23.11.4*" --quiet
+    check_status "JupyterHub Node: munge and slurm-client installed"
 
-log "Checking for local OOD SLURM definition file: ${LOCAL_OOD_SLURM_CLUSTER_CONFIG}..."
-if [ ! -f "${LOCAL_OOD_SLURM_CLUSTER_CONFIG}" ]; then
-    log "✗ Local OOD SLURM definition file ${LOCAL_OOD_SLURM_CLUSTER_CONFIG} not found!"
-    exit 1
+    log "JupyterHub Node: Installing NFS client and mounting shared storage..."
+    JUPYTERHUB_NFS_SETUP_COMMAND="sudo apt-get install -y nfs-common && sudo mkdir -p /shared && (sudo mount -t nfs ${FILESTORE_IP}:/ntt_storage /shared 2>/dev/null && echo \"NFS mounted successfully\" && echo \"${FILESTORE_IP}:/ntt_storage /shared nfs defaults 0 0\" | sudo tee -a /etc/fstab || (echo \"Failed to mount NFS share\" && exit 1))"
+    gcloud compute ssh "${JUPYTERHUB_NODE_NAME}" --zone=us-central1-a --command="${JUPYTERHUB_NFS_SETUP_COMMAND}" --quiet
+    check_status "JupyterHub Node: NFS client installed and shared storage mounted"
+
+    log "JupyterHub Node: Creating directories and setting up SLURM configuration..."
+    JUPYTERHUB_SETUP_COMMAND="sudo mkdir -p /etc/munge /etc/slurm && \
+        sudo cp /shared/slurm-config/munge.key /etc/munge/munge.key && \
+        sudo chown -R munge:munge /etc/munge && \
+        sudo chmod 0700 /etc/munge && \
+        sudo chmod 0400 /etc/munge/munge.key && \
+        sudo systemctl enable munge && sudo systemctl restart munge && \
+        sudo rm -f /etc/slurm/slurm.conf && \
+        sudo ln -s /shared/slurm-config/slurm.conf /etc/slurm/slurm.conf && \
+        sudo chown -h slurm:slurm /etc/slurm/slurm.conf"
+    gcloud compute ssh "${JUPYTERHUB_NODE_NAME}" --zone=us-central1-a --command="${JUPYTERHUB_SETUP_COMMAND}" --quiet
+    check_status "JupyterHub Node: Directories created and SLURM configuration set up"
+
+    log "JupyterHub Node: Testing SLURM connectivity via sinfo..."
+    gcloud compute ssh "${JUPYTERHUB_NODE_NAME}" --zone=us-central1-a --command="sinfo -N || echo 'sinfo command failed or returned no nodes (this might be okay if cluster is still settling)'" --quiet
+    log "JupyterHub_CMD: sinfo executed (see JupyterHub node for exact sinfo output if needed)"
+
+    log "--- JupyterHub node SLURM integration tasks finished. ---"
+    log "JupyterHub should be accessible at http://${JUPYTERHUB_IP}:8000"
+    log "JupyterHub can now submit jobs to the SLURM cluster via BatchSpawner"
+else
+    log "--- Skipping JupyterHub integration (JupyterHub node not found) ---"
 fi
-check_status "Local OOD SLURM definition file found"
-
-# Prepare OOD's slurm.yml by replacing placeholder with actual SLURM_HEAD_IP
-log "Preparing ${TEMP_OOD_SLURM_CLUSTER_CONFIG} with SLURM_HEAD_IP=${SLURM_HEAD_IP}..."
-cp "${LOCAL_OOD_SLURM_CLUSTER_CONFIG}" "${TEMP_OOD_SLURM_CLUSTER_CONFIG}"
-check_status "Copied ${LOCAL_OOD_SLURM_CLUSTER_CONFIG} to ${TEMP_OOD_SLURM_CLUSTER_CONFIG}"
-sed -i "s/\${SLURM_HEAD_IP}/${SLURM_HEAD_IP}/g" "${TEMP_OOD_SLURM_CLUSTER_CONFIG}"
-check_status "Replaced \${SLURM_HEAD_IP} in ${TEMP_OOD_SLURM_CLUSTER_CONFIG}"
-
-log "OOD Node: Installing munge and slurm-client..."
-gcloud compute ssh "${OOD_NODE_NAME}" --zone=us-central1-a --command="sudo apt-get update -y && sudo apt-get install -y munge libmunge-dev slurm-client=23.11.4*" --quiet
-check_status "OOD Node: munge and slurm-client installed"
-
-log "OOD Node: Installing NFS client and mounting shared storage..."
-OOD_NFS_SETUP_COMMAND="sudo apt-get install -y nfs-common && sudo mkdir -p /shared && (sudo mount -t nfs ${FILESTORE_IP}:/ntt_storage /shared 2>/dev/null && echo \"NFS mounted successfully\" && echo \"${FILESTORE_IP}:/ntt_storage /shared nfs defaults 0 0\" | sudo tee -a /etc/fstab || (echo \"Failed to mount NFS share\" && exit 1))"
-gcloud compute ssh "${OOD_NODE_NAME}" --zone=us-central1-a --command="${OOD_NFS_SETUP_COMMAND}" --quiet
-check_status "OOD Node: NFS client installed and shared storage mounted"
-
-log "OOD Node: Creating directories and setting up SLURM configuration..."
-OOD_SETUP_COMMAND="sudo mkdir -p /etc/munge /etc/slurm /etc/ood/config/clusters.d && \
-    sudo cp /shared/slurm-config/munge.key /etc/munge/munge.key && \
-    sudo chown -R munge:munge /etc/munge && \
-    sudo chmod 0700 /etc/munge && \
-    sudo chmod 0400 /etc/munge/munge.key && \
-    sudo systemctl enable munge && sudo systemctl restart munge && \
-    sudo rm -f /etc/slurm/slurm.conf && \
-    sudo ln -s /shared/slurm-config/slurm.conf /etc/slurm/slurm.conf && \
-    sudo chown -h slurm:slurm /etc/slurm/slurm.conf"
-gcloud compute ssh "${OOD_NODE_NAME}" --zone=us-central1-a --command="${OOD_SETUP_COMMAND}" --quiet
-check_status "OOD Node: Directories created and SLURM configuration set up"
-
-# Copy the OOD SLURM cluster config to the OOD node
-log "Copying OOD SLURM cluster config to ${OOD_NODE_NAME}..."
-gcloud compute scp "${TEMP_OOD_SLURM_CLUSTER_CONFIG}" "${OOD_NODE_NAME}:/tmp/slurm.yml" --zone=us-central1-a --quiet
-check_status "Copy OOD SLURM cluster config to OOD node"
-
-log "Installing OOD SLURM cluster config on ${OOD_NODE_NAME}..."
-gcloud compute ssh "${OOD_NODE_NAME}" --zone=us-central1-a --command="sudo mv /tmp/slurm.yml /etc/ood/config/clusters.d/slurm.yml && sudo chown root:root /etc/ood/config/clusters.d/slurm.yml && sudo chmod 644 /etc/ood/config/clusters.d/slurm.yml" --quiet
-check_status "Install OOD SLURM cluster config on OOD node"
-
-log "OOD Node: Updating OOD portal and restarting Apache..."
-gcloud compute ssh "${OOD_NODE_NAME}" --zone=us-central1-a --command="sudo /opt/ood/ood-portal-generator/sbin/update_ood_portal && sudo systemctl restart apache2" --quiet
-check_status "OOD Node: Portal updated and Apache restarted"
-
-log "OOD Node: Testing SLURM connectivity via sinfo..."
-gcloud compute ssh "${OOD_NODE_NAME}" --zone=us-central1-a --command="sinfo -N || echo 'sinfo command failed or returned no nodes (this might be okay if cluster is still settling)'" --quiet
-log "OOD_CMD: sinfo executed (see OOD node for exact sinfo output if needed)"
 
 # Cleanup
 log "Cleaning up temporary directory ${TEMP_DIR}..."
 rm -rf "${TEMP_DIR}"
 check_status "Cleaned up temporary directory"
 
-log "--- OOD node SLURM integration tasks finished. --- "
-log "OOD portal should be accessible at http://${OOD_IP}"
-log "Check SLURM status on ${SLURM_HEAD_NODE_NAME} and OOD logs on ${OOD_NODE_NAME} if issues arise."
+log "Check SLURM status on ${SLURM_HEAD_NODE_NAME} and JupyterHub logs on ${JUPYTERHUB_NODE_NAME} if issues arise."
 
-log "✓✓✓ Full SLURM and OOD integration setup process completed successfully! ✓✓✓"
+log "✓✓✓ Full SLURM and JupyterHub integration setup process completed successfully! ✓✓✓"
 exit 0
