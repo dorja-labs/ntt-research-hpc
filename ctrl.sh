@@ -154,7 +154,7 @@ run_jupyterhub_setup() {
 
 # Function to run SLURM post-install
 run_slurm_post_install() {
-    print_status "Running SLURM post-install which includes OOD integration setup..."
+    print_status "Running SLURM post-install which includes JupyterHub integration setup..."
 
     # Check if setup script exists
     local setup_script_path="ntt/hpc-slurm/setup.sh"
@@ -163,15 +163,15 @@ run_slurm_post_install() {
         return 1
     fi
 
-    # Run SLURM setup script (which now includes OOD integration)
+    # Run SLURM setup script (which now includes JupyterHub integration)
     print_status "Executing ${setup_script_path}..."
     if ! bash "${setup_script_path}"; then
         print_error "SLURM setup script (${setup_script_path}) failed. Check its log output for details."
         return 1
     fi
 
-    print_success "SLURM post-install (including OOD integration) completed successfully."
-    print_status "Check the logs from ${setup_script_path} (locally) and from the OOD node for detailed status."
+    print_success "SLURM post-install (including JupyterHub integration) completed successfully."
+    print_status "Check the logs from ${setup_script_path} (locally) and from the JupyterHub node for detailed status."
     return 0
 }
 

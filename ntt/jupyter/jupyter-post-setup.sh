@@ -230,7 +230,7 @@ c.NotebookApp.base_url = '/jupyter/'
 c.NotebookApp.trust_xheaders = True
 c.NotebookApp.tornado_settings = {
     'headers': {
-        'Content-Security-Policy': "frame-ancestors 'self' http://ntt-research-ood-0:*"
+        'Content-Security-Policy': "frame-ancestors 'self' http://ntt-research-jupyterhub-0:*"
     }
 }
 EOF

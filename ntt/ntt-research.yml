@@ -285,7 +285,7 @@ deployment_groups:
               set -e
               exec > >(tee -a /tmp/jupyterhub-startup.log) 2>&1
 
-              echo "[$(date)] Starting JupyterHub installation..."
+              echo "[`date`] Starting JupyterHub installation..."
 
               # Update system
               apt-get update -y
@@ -318,7 +318,7 @@ deployment_groups:
               # Create shared storage mount point
               mkdir -p /shared
 
-              echo "[$(date)] JupyterHub installation completed"
+              echo "[`date`] JupyterHub installation completed"
         outputs:
           - name
           - self_link

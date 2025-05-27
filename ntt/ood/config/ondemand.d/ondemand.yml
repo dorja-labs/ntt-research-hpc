@@ -1,9 +1,0 @@
----
-# Interactive applications configuration
-interactive_apps:
-  - title: "Jupyter Lab"
-    description: "Access the shared Jupyter Lab environment"
-    url: "http://ntt-research-jupyter-0:8888"
-    icon: "fa fa-jupyter"
-    category: "Development"
-    new_tab: true

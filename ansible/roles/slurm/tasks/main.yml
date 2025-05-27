@@ -1,0 +1,141 @@
+---
+# SLURM installation and configuration
+- name: Install SLURM packages
+  apt:
+    name:
+      - munge
+      - libmunge-dev
+      - slurm-wlm
+      - slurm-client
+      - slurm-wlm-basic-plugins
+      - mailutils
+    state: present
+  become: true
+
+- name: Create SLURM directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: slurm
+    group: slurm
+    mode: "0755"
+  become: true
+  loop:
+    - /etc/slurm
+    - /var/log/slurm-llnl
+    - /var/lib/slurm-llnl/slurmctld
+    - /var/lib/slurm-llnl/slurmd
+    - /var/run/slurm-llnl
+    - /var/spool/slurm/ctld
+    - /var/spool/slurm/d
+
+- name: Create munge directories
+  file:
+    path: /etc/munge
+    state: directory
+    owner: munge
+    group: munge
+    mode: "0700"
+  become: true
+
+# SLURM Head Node Tasks
+- name: Generate munge key (head node only)
+  command: dd if=/dev/urandom bs=1 count=1024 of={{ munge_key_path }}
+  args:
+    creates: "{{ munge_key_path }}"
+  become: true
+  when: slurm_role == 'controller'
+
+- name: Set munge key permissions (head node only)
+  file:
+    path: "{{ munge_key_path }}"
+    owner: munge
+    group: munge
+    mode: "0400"
+  become: true
+  when: slurm_role == 'controller'
+
+- name: Copy SLURM configuration to shared storage (head node only)
+  template:
+    src: slurm.conf.j2
+    dest: "{{ slurm_conf_path }}"
+    owner: slurm
+    group: slurm
+    mode: "0644"
+  become: true
+  when: slurm_role == 'controller'
+
+# All nodes tasks
+- name: Wait for munge key to be available
+  wait_for:
+    path: "{{ munge_key_path }}"
+    timeout: 600
+  when: slurm_role != 'controller'
+
+- name: Wait for SLURM config to be available
+  wait_for:
+    path: "{{ slurm_conf_path }}"
+    timeout: 600
+  when: slurm_role != 'controller'
+
+- name: Link munge key from shared storage
+  file:
+    src: "{{ munge_key_path }}"
+    dest: /etc/munge/munge.key
+    state: link
+    force: true
+  become: true
+
+- name: Link SLURM config from shared storage
+  file:
+    src: "{{ slurm_conf_path }}"
+    dest: /etc/slurm/slurm.conf
+    state: link
+    force: true
+  become: true
+
+- name: Start and enable munge service
+  systemd:
+    name: munge
+    state: started
+    enabled: true
+  become: true
+
+- name: Start and enable slurmctld (head node only)
+  systemd:
+    name: slurmctld
+    state: started
+    enabled: true
+  become: true
+  when: slurm_role == 'controller'
+
+- name: Wait for slurmctld to be ready (head node only)
+  wait_for:
+    port: 6817
+    host: localhost
+    timeout: 60
+  when: slurm_role == 'controller'
+
+- name: Start and enable slurmd
+  systemd:
+    name: slurmd
+    state: started
+    enabled: true
+  become: true
+
+- name: Verify SLURM services are running
+  systemd:
+    name: "{{ item }}"
+    state: started
+  become: true
+  loop:
+    - munge
+    - slurmd
+  register: slurm_services
+
+- name: Verify slurmctld is running (head node only)
+  systemd:
+    name: slurmctld
+    state: started
+  become: true
+  when: slurm_role == 'controller'

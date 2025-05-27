@@ -194,6 +194,66 @@ install_terraform() {
     print_success "Terraform installed successfully"
 }
 
+# Function to install Ansible
+install_ansible() {
+    print_status "Installing Ansible..."
+
+    # Check if ansible is already installed
+    if command_exists ansible && command_exists ansible-playbook; then
+        print_status "Ansible is already installed"
+        ansible --version | head -1
+        return 0
+    fi
+
+    # Install Python3 and pip if not available
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        # Update package lists
+        sudo apt-get update -y
+
+        # Install Python3, pip, and required dependencies
+        sudo apt-get install -y python3 python3-pip python3-venv python3-dev build-essential
+
+        # Install Ansible via pip3
+        print_status "Installing Ansible via pip3..."
+        pip3 install --user ansible
+
+        # Add ~/.local/bin to PATH if not already there
+        if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc 2>/dev/null || true
+            export PATH="$HOME/.local/bin:$PATH"
+        fi
+
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS - use brew or pip3
+        if command_exists brew; then
+            brew install ansible
+        else
+            # Fallback to pip3
+            pip3 install --user ansible
+            # Add ~/.local/bin to PATH if not already there
+            if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+                echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bash_profile
+                echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc 2>/dev/null || true
+                export PATH="$HOME/.local/bin:$PATH"
+            fi
+        fi
+    else
+        print_error "Unsupported operating system for Ansible installation"
+        exit 1
+    fi
+
+    # Verify installation
+    if command_exists ansible && command_exists ansible-playbook; then
+        print_success "Ansible installed successfully"
+        ansible --version | head -1
+    else
+        print_error "Ansible installation failed. You may need to restart your shell or run: source ~/.bashrc"
+        print_status "Alternatively, you can install Ansible manually with: pip3 install ansible"
+        return 1
+    fi
+}
+
 # Function to install gcluster
 install_gcluster() {
     print_status "Installing gcluster..."
@@ -427,7 +487,7 @@ check_prerequisites() {
     print_status "Checking prerequisites..."
 
     # Check for required commands
-    local required_commands=("terraform" "gcloud" "gcluster")
+    local required_commands=("terraform" "gcloud" "ansible" "gcluster")
     for cmd in "${required_commands[@]}"; do
         if ! command_exists "$cmd"; then
             print_error "$cmd is not installed"
@@ -586,6 +646,7 @@ main() {
     install_yq
     install_gcloud
     install_terraform
+    install_ansible
     install_gcluster
 
     # Setup GCP project

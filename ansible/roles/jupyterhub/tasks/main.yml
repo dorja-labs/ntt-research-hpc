@@ -1,0 +1,92 @@
+---
+# JupyterHub installation and configuration
+- name: Install Python and Node.js
+  apt:
+    name:
+      - python3
+      - python3-pip
+      - python3-venv
+      - nodejs
+      - npm
+    state: present
+  become: true
+
+- name: Install JupyterHub and dependencies via pip
+  pip:
+    name:
+      - jupyterhub
+      - jupyterlab
+      - batchspawner
+      - oauthenticator
+    state: present
+  become: true
+
+- name: Install configurable-http-proxy via npm
+  npm:
+    name: configurable-http-proxy
+    global: true
+  become: true
+
+- name: Install SLURM client packages
+  apt:
+    name:
+      - slurm-client
+      - munge
+      - libmunge-dev
+    state: present
+  become: true
+
+- name: Install scientific Python packages
+  pip:
+    name:
+      - numpy
+      - pandas
+      - matplotlib
+      - seaborn
+      - scipy
+      - scikit-learn
+      - biopython
+      - bioinfokit
+      - plotly
+      - bokeh
+      - dask
+      - distributed
+    state: present
+  become: true
+
+- name: Create JupyterHub directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  become: true
+  loop:
+    - /etc/jupyterhub
+    - /var/log/jupyterhub
+    - /srv/jupyterhub
+
+- name: Generate JupyterHub configuration
+  template:
+    src: jupyterhub_config.py.j2
+    dest: /etc/jupyterhub/jupyterhub_config.py
+    mode: "0644"
+  become: true
+  notify: restart jupyterhub
+
+- name: Create JupyterHub systemd service
+  template:
+    src: jupyterhub.service.j2
+    dest: /etc/systemd/system/jupyterhub.service
+    mode: "0644"
+  become: true
+  notify:
+    - reload systemd
+    - restart jupyterhub
+
+- name: Start and enable JupyterHub service
+  systemd:
+    name: jupyterhub
+    state: started
+    enabled: true
+    daemon_reload: true
+  become: true

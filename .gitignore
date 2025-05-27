@@ -153,3 +153,15 @@ coverage/
 # Ignore documentation build
 docs/_build/
 site/
+
+# Ansible
+ansible/inventory/dynamic_hosts.yml
+ansible/.ansible/
+*.retry
+.vault_pass
+
+# Ansible
+ansible/inventory/dynamic_hosts.yml
+ansible/.ansible/
+*.retry
+.vault_pass

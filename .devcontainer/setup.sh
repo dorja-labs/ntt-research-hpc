@@ -155,6 +155,20 @@ else
     echo "Google Cloud CLI is already installed"
 fi
 
+# Install Ansible if not present
+if ! command -v ansible &> /dev/null; then
+    echo "Installing Ansible..."
+    pip3 install --user ansible
+
+    # Add ~/.local/bin to PATH if not already there
+    if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+        echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+        export PATH="$HOME/.local/bin:$PATH"
+    fi
+else
+    echo "Ansible is already installed"
+fi
+
 # Set up Google Cloud authentication
 echo "Setting up Google Cloud authentication..."
 if [ -f "/workspaces/ntt-research/.devcontainer/gcp-key.json" ]; then

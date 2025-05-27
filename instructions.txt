@@ -6,10 +6,12 @@ The infrastructure is organized into components, each with its own workspace.
 Available Components:
 - network: Base network infrastructure
 - storage: Filestore instance for shared storage
-- ood: Open OnDemand server
-- hpc: HPC cluster
+- jupyterhub: JupyterHub server with SLURM integration
+- hpc-slurm: SLURM HPC cluster
+- hpc-pbs: PBS HPC cluster
 - k8s: Kubernetes cluster
 - jupyter: Jupyter server
+- vdi: Virtual Desktop Infrastructure
 
 Usage:
 1. Create a component:
@@ -23,8 +25,8 @@ Usage:
 
 Component Dependencies:
 - storage depends on network
-- ood depends on network and storage
-- hpc/k8s/jupyter depend on network and storage
+- jupyterhub depends on network and storage
+- hpc-slurm/hpc-pbs/k8s/jupyter/vdi depend on network and storage
 
 Notes:
 - Each component has its own Terraform workspace

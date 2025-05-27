@@ -32,7 +32,7 @@ The infrastructure is organized into modular components that can be deployed ind
 │   ├── config-manager.sh     # Component existence checker
 │   ├── hpc-slurm/           # SLURM cluster setup scripts
 │   ├── hpc-pbs/             # PBS cluster setup scripts
-│   ├── ood/                 # Open OnDemand configuration
+│   ├── jupyterhub/          # JupyterHub configuration
 │   └── jupyter/             # Jupyter server setup
 ├── ntt-research/            # Generated Terraform configurations
 ├── toolkit/                 # Google Cluster Toolkit (gcluster binary)
@@ -69,6 +69,7 @@ This repository includes a complete DevContainer configuration that provides a p
    - Ubuntu 22.04 base environment
    - Google Cloud SDK (`gcloud`)
    - Terraform (latest version)
+   - Ansible (latest version)
    - Google Cluster Toolkit (`gcluster`) - pre-compiled
    - All required dependencies (`yq`, `jq`, `curl`, `wget`)
    - Zsh with Oh My Zsh configuration
@@ -395,18 +396,18 @@ Each component includes specialized setup scripts:
 - Configures SLURM controller and compute nodes
 - Sets up MUNGE authentication
 - Configures shared storage integration
-- Integrates with Open OnDemand
+- Integrates with JupyterHub
 
-#### OOD Setup (`ntt/ood/setup.sh`)
-- Installs and configures Open OnDemand
-- Sets up Apache web server
-- Configures SLURM integration
-- Creates user authentication
+#### JupyterHub Setup (`ntt/jupyterhub/setup.sh`)
+- Installs and configures JupyterHub with BatchSpawner
+- Sets up SLURM integration for job submission
+- Configures multi-user environment
+- Installs scientific Python packages
 
 #### Jupyter Setup (`ntt/jupyter/setup.sh`)
 - Installs Jupyter Lab
 - Configures SLURM client
-- Sets up OOD integration
+- Sets up JupyterHub integration
 - Configures shared storage access
 
 ## 🔗 Component Dependencies
@@ -548,7 +549,7 @@ terraform show
 ### Documentation
 - [Google Cluster Toolkit Documentation](https://cloud.google.com/cluster-toolkit/docs)
 - [SLURM Documentation](https://slurm.schedmd.com/documentation.html)
-- [Open OnDemand Documentation](https://osc.github.io/ood-documentation/)
+- [JupyterHub Documentation](https://jupyterhub.readthedocs.io/)
 - [Google Cloud Documentation](https://cloud.google.com/docs)
 
 ### Examples and Tutorials

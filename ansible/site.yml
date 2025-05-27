@@ -1,0 +1,38 @@
+---
+# Main playbook for NTT Research Infrastructure
+- name: Deploy common configuration to all nodes
+  hosts: ntt_research
+  gather_facts: true
+  roles:
+    - common
+
+- name: Deploy SLURM cluster
+  hosts: slurm_cluster
+  gather_facts: true
+  serial: 1 # Deploy head node first, then compute nodes
+  roles:
+    - slurm
+
+- name: Deploy JupyterHub
+  hosts: jupyterhub_nodes
+  gather_facts: true
+  roles:
+    - jupyterhub
+
+- name: Deploy standalone Jupyter
+  hosts: jupyter_nodes
+  gather_facts: true
+  roles:
+    - jupyter
+
+- name: Deploy PBS cluster
+  hosts: pbs_cluster
+  gather_facts: true
+  roles:
+    - pbs
+
+- name: Deploy Kubernetes cluster
+  hosts: k8s_cluster
+  gather_facts: true
+  roles:
+    - kubernetes
