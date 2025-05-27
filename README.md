@@ -37,8 +37,51 @@ The infrastructure is organized into modular components that can be deployed ind
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### Development Environment (Recommended)
 
+**🐳 DevContainer - Preferred Development Platform**
+
+This repository includes a complete DevContainer configuration that provides a pre-configured development environment with all necessary tools and dependencies. This is the **recommended way** to work with this infrastructure.
+
+#### Prerequisites for DevContainer
+- **Docker Desktop** or **Docker Engine**
+- **Visual Studio Code** with the **Dev Containers extension**
+- **Google Cloud Project** with billing enabled
+
+#### Using the DevContainer
+
+1. **Clone the repository**:
+   ```bash
+   git clone <repository-url>
+   cd ntt-research-infrastructure
+   ```
+
+2. **Open in DevContainer**:
+   - Open the folder in VS Code
+   - When prompted, click "Reopen in Container"
+   - Or use Command Palette: `Dev Containers: Reopen in Container`
+
+3. **The DevContainer automatically provides**:
+   - Ubuntu 22.04 base environment
+   - Google Cloud SDK (`gcloud`)
+   - Terraform (latest version)
+   - Google Cluster Toolkit (`gcluster`) - pre-compiled
+   - All required dependencies (`yq`, `jq`, `curl`, `wget`)
+   - Zsh with Oh My Zsh configuration
+   - Git and development tools
+
+4. **Authenticate with Google Cloud** (inside the container):
+   ```bash
+   gcloud auth login
+   gcloud config set project YOUR_PROJECT_ID
+   gcloud auth application-default login
+   ```
+
+### Alternative: Local Installation
+
+If you prefer not to use the DevContainer:
+
+#### Prerequisites for Local Development
 1. **Google Cloud Project** with billing enabled
 2. **Required APIs** enabled:
    - Compute Engine API
@@ -52,7 +95,7 @@ The infrastructure is organized into modular components that can be deployed ind
    - Persistent disks
    - Filestore instances
 
-### Installation
+#### Local Installation Steps
 
 1. **Clone the repository**:
    ```bash
