@@ -1,0 +1,11 @@
+---
+name: Jupyter Lab
+icon: fa://jupyter
+category: Interactive Apps
+subcategory: Servers
+role: batch_connect
+description: |
+  Connect to the shared Jupyter Lab environment running on the cluster.
+
+  This provides access to the existing Jupyter server with all pre-installed
+  packages and shared data.

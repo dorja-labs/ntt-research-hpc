@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# This script connects to the existing Jupyter server within a SLURM job
+
+# Set connection details for existing server
+export host="ntt-research-jupyter-0"
+export port="8888"
+
+# Create connection info for OOD
+echo "Connecting to existing Jupyter Lab server..."
+echo "Host: ${host}"
+echo "Port: ${port}"
+
+# For OOD batch_connect, we need to create the connection info
+# that tells OOD how to proxy to the service
+cat > connection.yml <<EOF
+---
+host: ${host}
+port: ${port}
+EOF
+
+echo "Connection established to Jupyter Lab"
+echo "Access URL: http://${host}:${port}"
+
+# Keep the SLURM job alive for the requested duration
+echo "Keeping connection active for <%= bc_num_hours %> hour(s)..."
+
+# Calculate sleep duration in seconds
+DURATION=$((<%=bc_num_hours %> * 3600))
+
+# Sleep for the requested duration
+sleep $DURATION
+
+echo "Session duration completed"

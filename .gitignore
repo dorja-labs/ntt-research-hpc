@@ -1,0 +1,26 @@
+# Terraform
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfvars
+!ntt-research/*/terraform/terraform.tfvars
+**/.terraform.lock.hcl
+
+# Local configuration
+ntt/*.yaml
+!ntt/ntt-research.yml
+
+# Logs
+*.log
+
+# Terraform
+ntt-research/
+
+# toolkit
+toolkit/
+
+# cursor
+.cursor/
+
+# modules
+modules/

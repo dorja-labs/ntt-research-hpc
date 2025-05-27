@@ -1,0 +1,444 @@
+---
+blueprint_name: ntt-research
+vars:
+  project_id: $(vars.project_id)
+  deployment_name: ntt-research
+  region: $(vars.region)
+  zone: $(vars.zone)
+
+deployment_groups:
+  - group: network
+    modules:
+      - id: network1
+        source: modules/network/vpc
+        settings:
+          project_id: $(vars.project_id)
+          region: $(vars.region)
+          network_name: ntt-research-network
+          subnetworks:
+            - subnet_name: ntt-research-subnet
+              subnet_region: $(vars.region)
+              subnet_ip: 10.0.0.0/24
+              subnet_private_access: true
+              subnet_flow_logs: false
+              description: "Primary subnetwork for NTT Research"
+        outputs:
+          - network_name
+          - network_id
+          - network_self_link
+          - subnetwork_name
+          - subnetwork_self_link
+          - subnetwork_address
+
+  - group: storage
+    modules:
+      - id: filestore1
+        source: modules/file-system/filestore
+        settings:
+          project_id: $(vars.project_id)
+          deployment_name: $(vars.deployment_name)
+          name: ntt-research-fs
+          size_gb: 1024
+          zone: $(vars.zone)
+          region: $(vars.region)
+          labels:
+            ghpc_role: storage-shared
+          filestore_tier: BASIC_HDD
+          filestore_share_name: ntt_storage
+          network_id: projects/$(vars.project_id)/global/networks/ntt-research-network
+          local_mount: /shared
+        outputs:
+          - network_storage
+          - filestore_id
+          - capacity_gb
+          - install_nfs_client_runner
+          - mount_runner
+
+  - group: hpc-slurm
+    modules:
+      - id: hpc_slurm_cluster
+        source: modules/compute/vm-instance
+        settings:
+          name_prefix: ntt-research-hpc-slurm
+          machine_type: c2-standard-8
+          zone: $(vars.zone)
+          instance_image:
+            family: ubuntu-2404-lts-amd64
+            project: ubuntu-os-cloud
+          disk_size_gb: 200
+          instance_count: 2
+          network_self_link: projects/$(vars.project_id)/global/networks/ntt-research-network
+          subnetwork_self_link: projects/$(vars.project_id)/regions/$(vars.region)/subnetworks/ntt-research-subnet
+          tags:
+            - hpc-compute
+          labels:
+            ghpc_role: compute-node
+          metadata:
+            startup-script: |
+              #!/bin/bash
+              set -e # Exit on error
+              exec > >(tee -a /tmp/compute-node-startup.log) 2>&1 # Log to file
+
+              echo "[`` `date` ``] Starting compute node setup..."
+
+              # Install and configure NFS client first
+              echo "[`` `date` ``] Installing NFS client..."
+              apt-get update -y
+              apt-get install -y nfs-common
+              echo "[`` `date` ``] ✓ NFS client installed."
+
+              # Create mount point and mount NFS share
+              echo "[`` `date` ``] Creating /shared mount point..."
+              mkdir -p /shared
+              echo "[`` `date` ``] ✓ /shared directory created."
+
+              # Mount the NFS share using the correct filestore IP
+              echo "[`` `date` ``] Attempting to mount NFS share..."
+              if mount -t nfs 10.74.215.42:/ntt_storage /shared 2>/dev/null; then
+                echo "[`` `date` ``] ✓ NFS share mounted successfully."
+                echo "10.74.215.42:/ntt_storage /shared nfs defaults 0 0" >> /etc/fstab
+              else
+                echo "[`` `date` ``] ✗ Failed to mount NFS share. Continuing without shared storage."
+              fi
+
+              # Wait for NFS mount and config files from head node
+              SHARED_SLURM_CONF="/shared/slurm-config/slurm.conf"
+              SHARED_MUNGE_KEY="/shared/slurm-config/munge.key"
+              MAX_WAIT_SECONDS=600 # Wait up to 10 minutes
+              WAIT_INTERVAL=10
+              ELAPSED_WAIT=0
+
+              echo "[`` `date` ``] Waiting for NFS share /shared to be mounted..."
+              while ! mountpoint -q /shared; do
+                if [ $ELAPSED_WAIT -ge $MAX_WAIT_SECONDS ]; then
+                  echo "[`` `date` ``] ERROR: NFS mount /shared not available after $${MAX_WAIT_SECONDS} seconds. Exiting."
+                  exit 1
+                fi
+                sleep $WAIT_INTERVAL
+                ((ELAPSED_WAIT += WAIT_INTERVAL))
+                echo "[`` `date` ``] Waited $${ELAPSED_WAIT}s for /shared..."
+              done
+              echo "[`` `date` ``] ✓ NFS mount /shared is available."
+
+              ELAPSED_WAIT=0
+              echo "[`` `date` ``] Waiting for SLURM config files on NFS ($${SHARED_SLURM_CONF}, $${SHARED_MUNGE_KEY})..."
+              while [ ! -f "$${SHARED_SLURM_CONF}" ] || [ ! -f "$${SHARED_MUNGE_KEY}" ]; do
+                if [ $ELAPSED_WAIT -ge $MAX_WAIT_SECONDS ]; then
+                  echo "[`` `date` ``] ERROR: SLURM config files not found on NFS after $${MAX_WAIT_SECONDS} seconds. Exiting."
+                  echo "[`` `date` ``] Missing $${SHARED_SLURM_CONF}: `` `ls -l $${SHARED_SLURM_CONF} || echo 'not found'` ``"
+                  echo "[`` `date` ``] Missing $${SHARED_MUNGE_KEY}: `` `ls -l $${SHARED_MUNGE_KEY} || echo 'not found'` ``"
+                  exit 1
+                fi
+                sleep $WAIT_INTERVAL
+                ((ELAPSED_WAIT += WAIT_INTERVAL))
+                echo "[`` `date` ``] Waited $${ELAPSED_WAIT}s for SLURM configs..."
+              done
+              echo "[`` `date` ``] ✓ SLURM config files found on NFS."
+
+              echo "[`` `date` ``] Updating package lists..."
+              apt-get update -y
+              echo "[`` `date` ``] ✓ Package lists updated."
+
+              echo "[`` `date` ``] Installing MUNGE and SLURM (slurm-wlm for slurmd)..."
+              apt-get install -y munge libmunge-dev slurm-wlm
+              echo "[`` `date` ``] ✓ MUNGE and SLURM installed."
+
+              echo "[`` `date` ``] Creating local directories /etc/munge and /etc/slurm..."
+              mkdir -p /etc/munge
+              mkdir -p /etc/slurm
+              echo "[`` `date` ``] ✓ Local directories created."
+
+              echo "[`` `date` ``] Symlinking shared munge.key to /etc/munge/munge.key..."
+              ln -sf "$${SHARED_MUNGE_KEY}" /etc/munge/munge.key
+              # Set ownership for /etc/munge directory and strict permissions for the actual munge.key via its original location
+              # The symlink itself doesn't hold permissions in the same way. Munge daemon will check target file.
+              chown -R munge:munge /etc/munge # Ensure /etc/munge dir is owned by munge
+              chmod 0700 /etc/munge
+              # Target file /shared/slurm-config/munge.key should have 0400 or 0440 by root/munge or similar.
+              # The script on head node sets it to 0444, which is fine for munge daemon to read if it runs as root or munge.
+              echo "[`` `date` ``] ✓ munge.key symlinked."
+
+              echo "[`` `date` ``] Symlinking shared slurm.conf to /etc/slurm/slurm.conf..."
+              ln -sf "$${SHARED_SLURM_CONF}" /etc/slurm/slurm.conf
+              chown slurm:slurm /etc/slurm # Ensure /etc/slurm dir is owned by slurm
+              # slurm.conf usually 644, target file on NFS has this.
+              echo "[`` `date` ``] ✓ slurm.conf symlinked."
+
+              # Ensure SLURM spool/state dirs exist and have correct ownership, as defined in slurm.conf
+              # These are usually /var/lib/slurm-llnl/slurmd and /var/run/slurm-llnl
+              echo "[`` `date` ``] Creating SLURM spool/run directories..."
+              mkdir -p /var/lib/slurm-llnl/slurmd /var/run/slurm-llnl
+              chown -R slurm:slurm /var/lib/slurm-llnl /var/run/slurm-llnl
+              chmod -R 0755 /var/lib/slurm-llnl /var/run/slurm-llnl # slurm needs to write here
+              echo "[`` `date` ``] ✓ SLURM spool/run directories created."
+
+              echo "[`` `date` ``] Starting and enabling MUNGE service..."
+              systemctl enable munge
+              systemctl restart munge
+              systemctl is-active --quiet munge || (echo "[`` `date` ``] ERROR: MUNGE service failed to start!" && exit 1)
+              echo "[`` `date` ``] ✓ MUNGE service started and enabled."
+
+              echo "[`` `date` ``] Starting and enabling slurmd (SLURM daemon)..."
+              systemctl enable slurmd
+              systemctl restart slurmd
+              systemctl is-active --quiet slurmd || (echo "[`` `date` ``] ERROR: slurmd service failed to start! Check /var/log/slurm-llnl/slurmd.log and journalctl -u slurmd" && exit 1)
+              echo "[`` `date` ``] ✓ slurmd service started and enabled."
+
+              echo "[`` `date` ``] Compute node setup completed successfully."
+        outputs:
+          - name
+          - self_link
+          - external_ip
+          - internal_ip
+
+      - id: hpc_firewall
+        source: modules/network/firewall-rules
+        settings:
+          subnetwork_self_link: https://www.googleapis.com/compute/v1/projects/$(vars.project_id)/regions/$(vars.region)/subnetworks/ntt-research-subnet
+          ingress_rules:
+            - name: allow-slurm-ports
+              description: "Allow SLURM communication ports"
+              target_tags: ["hpc-compute"]
+              allow:
+                - protocol: "tcp"
+                  ports: ["6817", "6818"]
+            - name: allow-slurm-ssh
+              description: "Allow SSH to SLURM nodes"
+              target_tags: ["hpc-compute"]
+              allow:
+                - protocol: "tcp"
+                  ports: ["22"]
+
+  - group: hpc-pbs
+    modules:
+      - id: hpc_pbs_cluster
+        source: modules/compute/vm-instance
+        settings:
+          name_prefix: ntt-research-hpc-pbs
+          machine_type: c2-standard-8
+          zone: $(vars.zone)
+          instance_image:
+            family: ubuntu-2404-lts-amd64
+            project: ubuntu-os-cloud
+          disk_size_gb: 200
+          instance_count: 2
+          network_self_link: projects/$(vars.project_id)/global/networks/ntt-research-network
+          subnetwork_self_link: projects/$(vars.project_id)/regions/$(vars.region)/subnetworks/ntt-research-subnet
+          tags:
+            - hpc-compute
+          labels:
+            ghpc_role: compute-node
+          metadata:
+            startup-script: |
+              #!/bin/bash
+              # Install PBS Professional
+              wget -O /tmp/pbspro.deb https://github.com/altair/pbspro/releases/download/v23.1.0/pbspro_23.1.0-0_amd64.deb
+              apt-get update
+              apt-get install -y /tmp/pbspro.deb
+
+              # Configure PBS
+              cat > /etc/pbs.conf << EOF
+              PBS_SERVER=\$(hostname)
+              PBS_START_SERVER=1
+              PBS_START_SCHED=1
+              PBS_START_COMM=1
+              PBS_START_MOM=1
+              PBS_EXEC=/opt/pbs
+              PBS_HOME=/var/spool/pbs
+              PBS_CORE_LIMIT=unlimited
+              PBS_SCP=/usr/bin/scp
+              EOF
+
+              # Start PBS services
+              systemctl enable pbs
+              systemctl start pbs
+
+              # Create default queue
+              qmgr -c "create queue work"
+              qmgr -c "set queue work queue_type = Execution"
+              qmgr -c "set queue work resources_default.nodes = 1"
+              qmgr -c "set queue work resources_default.walltime = 24:00:00"
+              qmgr -c "set queue work enabled = True"
+              qmgr -c "set queue work started = True"
+
+  - group: ood
+    modules:
+      - id: ood_cluster
+        source: modules/compute/vm-instance
+        settings:
+          name_prefix: ntt-research-ood
+          machine_type: c2-standard-4
+          zone: $(vars.zone)
+          instance_image:
+            family: ubuntu-2404-lts-amd64
+            project: ubuntu-os-cloud
+          disk_size_gb: 100
+          network_self_link: projects/$(vars.project_id)/global/networks/ntt-research-network
+          subnetwork_self_link: projects/$(vars.project_id)/regions/$(vars.region)/subnetworks/ntt-research-subnet
+          tags:
+            - ood-host
+          labels:
+            ghpc_role: ood-host
+          metadata:
+            startup-script: |
+              #!/bin/bash
+              # Install OOD software
+              apt-get update
+              apt-get install -y apt-transport-https ca-certificates
+              wget -O /tmp/ondemand-release-web_4.0.0-noble_all.deb https://apt.osc.edu/ondemand/4.0/ondemand-release-web_4.0.0-noble_all.deb
+              apt-get install -y /tmp/ondemand-release-web_4.0.0-noble_all.deb
+              apt-get update
+              apt-get install -y ondemand
+        outputs:
+          - name
+          - self_link
+          - external_ip
+          - internal_ip
+
+      - id: ood_firewall
+        source: modules/network/firewall-rules
+        settings:
+          subnetwork_self_link: https://www.googleapis.com/compute/v1/projects/$(vars.project_id)/regions/$(vars.region)/subnetworks/ntt-research-subnet
+          ingress_rules:
+            - name: allow-ood-http
+              description: "Allow HTTP traffic to OOD instance"
+              target_tags: ["ood-host"]
+              allow:
+                - protocol: "tcp"
+                  ports: ["80"]
+            - name: allow-ood-https
+              description: "Allow HTTPS traffic to OOD instance"
+              target_tags: ["ood-host"]
+              allow:
+                - protocol: "tcp"
+                  ports: ["443"]
+            - name: allow-ood-ssh
+              description: "Allow SSH traffic to OOD instance"
+              target_tags: ["ood-host"]
+              allow:
+                - protocol: "tcp"
+                  ports: ["22"]
+
+      - id: ood_post_setup
+        source: modules/scripts/startup-script
+        settings:
+          runners:
+            - type: shell
+              destination: "ood-post-setup.sh"
+              content: |
+                #!/bin/bash
+                # This script is managed by the post-setup module
+                # Do not edit directly
+
+                # Configure OOD to use SLURM
+                cat > /etc/ood/config/clusters.d/slurm.yml << EOF
+                ---
+                v2:
+                  metadata:
+                    title: "SLURM Cluster"
+                    url: "https://ondemand.osc.edu"
+                    hidden: false
+                  login:
+                    host: "ntt-research-hpc-slurm-0"
+                  job:
+                    adapter: "slurm"
+                    cluster: "ntt-research-slurm"
+                    bin: "/usr/bin"
+                    conf: "/etc/slurm/slurm.conf"
+                  batch_connect:
+                    template: "v2"
+                    conn_params:
+                      host: "ntt-research-hpc-slurm-0"
+                EOF
+
+                # Install SLURM client on OOD host
+                apt-get update
+                apt-get install -y slurm-client
+
+                # Copy SLURM configuration from head node
+                scp ntt-research-hpc-slurm-0:/etc/slurm/slurm.conf /etc/slurm/slurm.conf
+
+                # Restart OOD services
+                systemctl restart apache2
+                systemctl restart ondemand
+
+  - group: k8s
+    modules:
+      - id: k8s_cluster
+        source: modules/compute/vm-instance
+        settings:
+          name_prefix: ntt-research-k8s
+          machine_type: c2-standard-4
+          zone: $(vars.zone)
+          instance_image:
+            family: ubuntu-2404-lts-amd64
+            project: ubuntu-os-cloud
+          disk_size_gb: 100
+          instance_count: 3
+          network_self_link: projects/$(vars.project_id)/global/networks/ntt-research-network
+          subnetwork_self_link: projects/$(vars.project_id)/regions/$(vars.region)/subnetworks/ntt-research-subnet
+          tags:
+            - k8s-node
+          labels:
+            ghpc_role: k8s-node
+
+  - group: jupyter
+    modules:
+      - id: jupyter_cluster
+        source: modules/compute/vm-instance
+        settings:
+          name_prefix: ntt-research-jupyter
+          machine_type: c2-standard-4
+          zone: $(vars.zone)
+          instance_image:
+            family: ubuntu-2404-lts-amd64
+            project: ubuntu-os-cloud
+          disk_size_gb: 100
+          network_self_link: projects/$(vars.project_id)/global/networks/ntt-research-network
+          subnetwork_self_link: projects/$(vars.project_id)/regions/$(vars.region)/subnetworks/ntt-research-subnet
+          tags:
+            - jupyter-host
+          labels:
+            ghpc_role: jupyter-host
+
+      - id: jupyter_firewall
+        source: modules/network/firewall-rules
+        settings:
+          subnetwork_self_link: https://www.googleapis.com/compute/v1/projects/$(vars.project_id)/regions/$(vars.region)/subnetworks/ntt-research-subnet
+          ingress_rules:
+            - name: allow-jupyter-http
+              description: "Allow HTTP traffic to Jupyter instance on port 8888"
+              target_tags: ["jupyter-host"]
+              source_ranges: ["0.0.0.0/0"]
+              allow:
+                - protocol: "tcp"
+                  ports: ["8888"]
+            - name: allow-jupyter-ssh
+              description: "Allow SSH traffic to Jupyter instance"
+              target_tags: ["jupyter-host"]
+              source_ranges: ["0.0.0.0/0"]
+              allow:
+                - protocol: "tcp"
+                  ports: ["22"]
+
+  - group: vdi
+    modules:
+      - id: vdi_cluster
+        source: modules/compute/vm-instance
+        settings:
+          name_prefix: ntt-research-vdi
+          machine_type: n2-standard-4
+          zone: $(vars.zone)
+          instance_image:
+            family: windows-server-2019
+            project: windows-cloud
+          disk_size_gb: 100
+          network_self_link: projects/$(vars.project_id)/global/networks/ntt-research-network
+          subnetwork_self_link: projects/$(vars.project_id)/regions/$(vars.region)/subnetworks/ntt-research-subnet
+          tags:
+            - vdi-host
+          guest_accelerator:
+            - type: nvidia-tesla-t4
+              count: 1
+          labels:
+            ghpc_role: vdi-host

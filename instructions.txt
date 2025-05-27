@@ -1,0 +1,33 @@
+NTT Research Infrastructure Setup
+
+This directory contains the Terraform configuration for the NTT Research infrastructure.
+The infrastructure is organized into components, each with its own workspace.
+
+Available Components:
+- network: Base network infrastructure
+- storage: Filestore instance for shared storage
+- ood: Open OnDemand server
+- hpc: HPC cluster
+- k8s: Kubernetes cluster
+- jupyter: Jupyter server
+
+Usage:
+1. Create a component:
+   ./ctrl.sh create <component>
+
+2. Delete a component:
+   ./ctrl.sh delete <component>
+
+3. List components:
+   ./ctrl.sh list
+
+Component Dependencies:
+- storage depends on network
+- ood depends on network and storage
+- hpc/k8s/jupyter depend on network and storage
+
+Notes:
+- Each component has its own Terraform workspace
+- Components are created in the correct order based on dependencies
+- Use --force to overwrite existing components
+- The network component requires special handling for deletion

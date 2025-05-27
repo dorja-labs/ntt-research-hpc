@@ -1,0 +1,48 @@
+---
+v2:
+  metadata:
+    title: "NTT Research SLURM Cluster"
+  login:
+    host: "${SLURM_HEAD_IP}"
+  job:
+    adapter: "slurm"
+    cluster: "ntt-research-slurm"
+    submit_host: "${SLURM_HEAD_IP}"
+    exec_host: "${SLURM_HEAD_IP}"
+    bin: "/usr/bin"
+    conf: "/etc/slurm/slurm.conf"
+    lib: "/usr/lib/slurm"
+    log: "/var/log/slurm"
+    spool: "/var/spool/slurm"
+    submit: "sbatch"
+    cancel: "scancel"
+    show: "squeue"
+    info: "sinfo"
+    accounting: "sacct"
+  batch_connect:
+    basic:
+      script_wrapper: |
+        #!/bin/bash
+        #SBATCH --job-name=%{job_name}
+        #SBATCH --account=%{account}
+        #SBATCH --partition=%{partition}
+        #SBATCH --nodes=%{min_nodes}
+        #SBATCH --ntasks-per-node=%{ntasks_per_node}
+        #SBATCH --time=%{wall_time}
+        #SBATCH --output=%{job_script_directory}/%{job_name}.o%{job_id}
+        #SBATCH --error=%{job_script_directory}/%{job_name}.e%{job_id}
+        %{job_script}
+      template:
+        - "script_wrapper"
+    v2:
+      script_wrapper: |
+        #!/bin/bash
+        #SBATCH --job-name=%{job_name}
+        #SBATCH --account=%{account}
+        #SBATCH --partition=%{partition}
+        #SBATCH --nodes=%{min_nodes}
+        #SBATCH --ntasks-per-node=%{ntasks_per_node}
+        #SBATCH --time=%{wall_time}
+        #SBATCH --output=%{job_script_directory}/%{job_name}.o%{job_id}
+        #SBATCH --error=%{job_script_directory}/%{job_name}.e%{job_id}
+        %{job_script}
