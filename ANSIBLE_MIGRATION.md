@@ -86,8 +86,8 @@ ansible/
 ### **Direct Ansible Commands**
 
 ```bash
-# Install Ansible (if not in DevContainer)
-pip3 install ansible
+# Ansible is automatically installed via install.sh or DevContainer
+# If needed manually: pip3 install ansible
 
 # Run full deployment
 ansible-playbook -i ansible/inventory/dynamic_hosts.yml ansible/site.yml
@@ -315,10 +315,14 @@ check_status() {
 
 **Ansible not found:**
 ```bash
-# In DevContainer (recommended)
-pip3 install ansible
+# Ansible should be automatically installed via install.sh or DevContainer
+# If missing, install manually:
+pip3 install --user ansible
 
-# Or use system package manager
+# Add to PATH if needed:
+export PATH="$HOME/.local/bin:$PATH"
+
+# Or use system package manager:
 sudo apt-get install ansible
 ```
 

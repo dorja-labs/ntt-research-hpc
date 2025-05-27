@@ -115,6 +115,7 @@ If you prefer not to use the DevContainer:
    This installs:
    - Google Cloud SDK (`gcloud`)
    - Terraform
+   - Ansible
    - Google Cluster Toolkit (`gcluster`)
    - Required dependencies (`yq`, `jq`)
 
@@ -248,6 +249,7 @@ The DevContainer provides a **consistent, reproducible development environment**
 #### Pre-installed Tools
 - **Google Cloud SDK** (`gcloud`) - Latest version with all components
 - **Terraform** - Latest stable version
+- **Ansible** - Latest stable version for configuration management
 - **Google Cluster Toolkit** (`gcluster`) - Pre-compiled and ready to use
 - **Development Tools**: `git`, `curl`, `wget`, `jq`, `yq`, `vim`, `nano`
 - **Shell Environment**: Zsh with Oh My Zsh and useful plugins
