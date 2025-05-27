@@ -1,26 +1,155 @@
-# Terraform
-**/.terraform/
-**/*.tfstate
-**/*.tfstate.*
-**/*.tfvars
-!ntt-research/*/terraform/terraform.tfvars
-**/.terraform.lock.hcl
+# Local .terraform directories
+**/.terraform/*
 
-# Local configuration
-ntt/*.yaml
-!ntt/ntt-research.yml
+# .tfstate files
+*.tfstate
+*.tfstate.*
 
-# Logs
+# Crash log files
+crash.log
+crash.*.log
+
+# Exclude all .tfvars files, which are likely to contain sensitive data
+*.tfvars
+*.tfvars.json
+
+# Ignore override files as they are usually used for local development
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Ignore CLI configuration files
+.terraformrc
+terraform.rc
+
+# Ignore lock files
+.terraform.lock.hcl
+
+# Ignore Mac/OSX files
+.DS_Store
+
+# Ignore IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Ignore Cursor IDE files
+.cursor/
+*.cursor-*
+.cursorrules
+
+# Ignore temporary files
+*.tmp
+*.temp
+*.bak
+
+# Ignore log files
 *.log
 
-# Terraform
-ntt-research/
+# Ignore environment files
+.env
+.env.*
 
-# toolkit
+# Ignore node modules
+node_modules/
+
+# Ignore Python virtual environments
+venv/
+env/
+ENV/
+
+# Ignore compiled Python files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Ignore Terraform workspace files
+terraform.tfstate.d/
+
+# Ignore gcluster generated files
+*.yaml
+!ntt/configs/ntt-research.yaml
+
+# Ignore modules directory (Google Cluster Toolkit modules)
+modules/
+
+# Ignore toolkit directory (gcluster binary and related files)
 toolkit/
 
-# cursor
-.cursor/
+# Ignore generated Terraform configurations
+ntt-research/
 
-# modules
-modules/
+# Ignore installation temporary files
+install_*.log
+setup_*.log
+*-setup.log
+*-post-setup.log
+
+# Ignore SSH keys
+*.pem
+*.key
+*_rsa
+*_rsa.pub
+*_ed25519
+*_ed25519.pub
+ntt/*/ssh_key*
+ntt/*/*_ssh_key*
+
+# Ignore backup files
+*.backup
+*.orig
+
+# Ignore downloaded packages and archives
+*.tar.gz
+*.zip
+*.deb
+*.rpm
+
+# Ignore local configuration overrides
+local.conf
+local.yaml
+local.yml
+*-local.*
+
+# Ignore runtime directories
+run/
+tmp/
+temp/
+
+# Ignore cache directories
+.cache/
+cache/
+
+# Ignore build artifacts
+build/
+dist/
+*.egg-info/
+
+# Ignore OS-specific files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Ignore editor backup files
+*~
+.#*
+#*#
+
+# Ignore patch files
+*.patch
+*.diff
+
+# Ignore test output
+test-results/
+coverage/
+.coverage
+.pytest_cache/
+
+# Ignore documentation build
+docs/_build/
+site/
