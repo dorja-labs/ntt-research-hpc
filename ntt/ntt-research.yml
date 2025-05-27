@@ -261,12 +261,12 @@ deployment_groups:
               qmgr -c "set queue work enabled = True"
               qmgr -c "set queue work started = True"
 
-  - group: ood
+  - group: jupyterhub
     modules:
-      - id: ood_cluster
+      - id: jupyterhub_server
         source: modules/compute/vm-instance
         settings:
-          name_prefix: ntt-research-ood
+          name_prefix: ntt-research-jupyterhub
           machine_type: c2-standard-4
           zone: $(vars.zone)
           instance_image:
@@ -276,91 +276,78 @@ deployment_groups:
           network_self_link: projects/$(vars.project_id)/global/networks/ntt-research-network
           subnetwork_self_link: projects/$(vars.project_id)/regions/$(vars.region)/subnetworks/ntt-research-subnet
           tags:
-            - ood-host
+            - jupyterhub-host
           labels:
-            ghpc_role: ood-host
+            ghpc_role: jupyterhub-host
           metadata:
             startup-script: |
               #!/bin/bash
-              # Install OOD software
-              apt-get update
-              apt-get install -y apt-transport-https ca-certificates
-              wget -O /tmp/ondemand-release-web_4.0.0-noble_all.deb https://apt.osc.edu/ondemand/4.0/ondemand-release-web_4.0.0-noble_all.deb
-              apt-get install -y /tmp/ondemand-release-web_4.0.0-noble_all.deb
-              apt-get update
-              apt-get install -y ondemand
+              set -e
+              exec > >(tee -a /tmp/jupyterhub-startup.log) 2>&1
+
+              echo "[$(date)] Starting JupyterHub installation..."
+
+              # Update system
+              apt-get update -y
+
+              # Install Python and pip
+              apt-get install -y python3 python3-pip python3-venv nodejs npm
+
+              # Install JupyterHub and dependencies
+              pip3 install --upgrade pip
+              pip3 install jupyterhub jupyterlab
+              pip3 install batchspawner
+              pip3 install oauthenticator
+
+              # Install configurable-http-proxy
+              npm install -g configurable-http-proxy
+
+              # Install SLURM client for job submission
+              apt-get install -y slurm-client munge libmunge-dev
+
+              # Install common scientific packages
+              pip3 install numpy pandas matplotlib seaborn scipy scikit-learn
+              pip3 install biopython bioinfokit plotly bokeh
+              pip3 install dask distributed
+
+              # Create JupyterHub directories
+              mkdir -p /etc/jupyterhub
+              mkdir -p /var/log/jupyterhub
+              mkdir -p /srv/jupyterhub
+
+              # Create shared storage mount point
+              mkdir -p /shared
+
+              echo "[$(date)] JupyterHub installation completed"
         outputs:
           - name
           - self_link
           - external_ip
           - internal_ip
 
-      - id: ood_firewall
+      - id: jupyterhub_firewall
         source: modules/network/firewall-rules
         settings:
           subnetwork_self_link: https://www.googleapis.com/compute/v1/projects/$(vars.project_id)/regions/$(vars.region)/subnetworks/ntt-research-subnet
           ingress_rules:
-            - name: allow-ood-http
-              description: "Allow HTTP traffic to OOD instance"
-              target_tags: ["ood-host"]
+            - name: allow-jupyterhub-http
+              description: "Allow HTTP traffic to JupyterHub instance"
+              target_tags: ["jupyterhub-host"]
               allow:
                 - protocol: "tcp"
-                  ports: ["80"]
-            - name: allow-ood-https
-              description: "Allow HTTPS traffic to OOD instance"
-              target_tags: ["ood-host"]
+                  ports: ["8000"]
+            - name: allow-jupyterhub-https
+              description: "Allow HTTPS traffic to JupyterHub instance"
+              target_tags: ["jupyterhub-host"]
               allow:
                 - protocol: "tcp"
                   ports: ["443"]
-            - name: allow-ood-ssh
-              description: "Allow SSH traffic to OOD instance"
-              target_tags: ["ood-host"]
+            - name: allow-jupyterhub-ssh
+              description: "Allow SSH traffic to JupyterHub instance"
+              target_tags: ["jupyterhub-host"]
               allow:
                 - protocol: "tcp"
                   ports: ["22"]
-
-      - id: ood_post_setup
-        source: modules/scripts/startup-script
-        settings:
-          runners:
-            - type: shell
-              destination: "ood-post-setup.sh"
-              content: |
-                #!/bin/bash
-                # This script is managed by the post-setup module
-                # Do not edit directly
-
-                # Configure OOD to use SLURM
-                cat > /etc/ood/config/clusters.d/slurm.yml << EOF
-                ---
-                v2:
-                  metadata:
-                    title: "SLURM Cluster"
-                    url: "https://ondemand.osc.edu"
-                    hidden: false
-                  login:
-                    host: "ntt-research-hpc-slurm-0"
-                  job:
-                    adapter: "slurm"
-                    cluster: "ntt-research-slurm"
-                    bin: "/usr/bin"
-                    conf: "/etc/slurm/slurm.conf"
-                  batch_connect:
-                    template: "v2"
-                    conn_params:
-                      host: "ntt-research-hpc-slurm-0"
-                EOF
-
-                # Install SLURM client on OOD host
-                apt-get update
-                apt-get install -y slurm-client
-
-                # Copy SLURM configuration from head node
-                scp ntt-research-hpc-slurm-0:/etc/slurm/slurm.conf /etc/slurm/slurm.conf
-
-                # Restart OOD services
-                systemctl restart apache2
-                systemctl restart ondemand
 
   - group: k8s
     modules:

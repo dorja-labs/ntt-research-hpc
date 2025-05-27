@@ -49,7 +49,7 @@ print_help() {
     echo "  network              Network infrastructure"
     echo "  storage              Shared Filestore storage"
     echo "  openstack            OpenStack cluster"
-    echo "  ood                  Open OnDemand server"
+    echo "  jupyterhub           JupyterHub server with SLURM integration"
     echo "  hpc-slurm            HPC cluster with SLURM scheduler"
     echo "  hpc-pbs              HPC cluster with PBS scheduler"
     echo "  k8s                  Kubernetes cluster nodes"
@@ -97,9 +97,9 @@ show_status() {
     print_status "\nOpenStack Cluster:"
     gcloud compute instances list --filter="name~ntt-research-openstack" --format="table(name,status,zone)" 2>/dev/null || true
 
-    # Check OOD server
-    print_status "\nOpen OnDemand Server:"
-    gcloud compute instances list --filter="name~ntt-research-ood" --format="table(name,status,zone,networkInterfaces[0].accessConfigs[0].natIP)" 2>/dev/null || true
+    # Check JupyterHub server
+    print_status "\nJupyterHub Server:"
+    gcloud compute instances list --filter="name~ntt-research-jupyterhub" --format="table(name,status,zone,networkInterfaces[0].accessConfigs[0].natIP)" 2>/dev/null || true
 
     # Check HPC SLURM cluster
     print_status "\nHPC SLURM Cluster Nodes:"
@@ -130,26 +130,26 @@ check_component_exists() {
     ./ntt/config-manager.sh check-exists "$component"
 }
 
-# Function to run OOD post-setup
-run_ood_setup() {
-    print_status "Running OOD post-setup..."
+# Function to run JupyterHub post-setup
+run_jupyterhub_setup() {
+    print_status "Running JupyterHub post-setup..."
 
-    # Change to OOD directory
-    cd ntt/ood || {
-        print_error "Failed to change to OOD directory"
+    # Change to JupyterHub directory
+    cd ntt/jupyterhub || {
+        print_error "Failed to change to JupyterHub directory"
         return 1
     }
 
     # Run setup script
     if ! ./setup.sh; then
-        print_error "OOD setup failed"
+        print_error "JupyterHub setup failed"
         cd - > /dev/null
         return 1
     fi
 
     # Return to original directory
     cd - > /dev/null
-    print_success "OOD post-setup completed successfully"
+    print_success "JupyterHub post-setup completed successfully"
 }
 
 # Function to run SLURM post-install
@@ -221,7 +221,7 @@ run_vdi_post_install() {
 
 # Map of components to their post-install functions
 declare -A POST_INSTALL_HANDLERS=(
-    ["ood"]="run_ood_setup"
+    ["jupyterhub"]="run_jupyterhub_setup"
     ["hpc-slurm"]="run_slurm_post_install"
     ["hpc-pbs"]="run_pbs_post_install"
     ["k8s"]="run_k8s_post_install"
@@ -374,9 +374,9 @@ show_component_status() {
             print_status "\nOpenStack Status:"
             gcloud compute instances list --filter="name~ntt-research-openstack" --format="table(name,status,zone)" 2>/dev/null || true
             ;;
-        ood)
-            print_status "\nOOD Server Status:"
-            gcloud compute instances list --filter="name=ntt-research-ood" --format="table(name,status,zone,networkInterfaces[0].accessConfigs[0].natIP)" 2>/dev/null || true
+        jupyterhub)
+            print_status "\nJupyterHub Server Status:"
+            gcloud compute instances list --filter="name=ntt-research-jupyterhub" --format="table(name,status,zone,networkInterfaces[0].accessConfigs[0].natIP)" 2>/dev/null || true
             ;;
         hpc-slurm)
             print_status "\nHPC SLURM Cluster Status:"

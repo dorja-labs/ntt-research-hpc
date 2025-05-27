@@ -10,7 +10,7 @@ The infrastructure is organized into modular components that can be deployed ind
 - **Storage**: Shared NFS storage using Google Cloud Filestore
 - **HPC-SLURM**: High-Performance Computing cluster with SLURM scheduler
 - **HPC-PBS**: Alternative HPC cluster with PBS Professional scheduler
-- **OOD**: Open OnDemand web portal for job submission and management
+- **JupyterHub**: Multi-user Jupyter environment with SLURM integration for interactive computing
 - **Jupyter**: Jupyter Lab server for interactive computing
 - **K8s**: Kubernetes cluster for containerized workloads
 - **VDI**: Virtual Desktop Infrastructure with GPU support
@@ -187,19 +187,21 @@ The main interface is the `ctrl.sh` script:
   - PBS Professional server and execution hosts
 - **Dependencies**: Network, Storage
 
-### Open OnDemand (OOD) Component
-- **Purpose**: Web-based portal for HPC job submission and management
+### JupyterHub Component
+- **Purpose**: Multi-user Jupyter environment with SLURM batch job integration
 - **Resources**:
   - 1x c2-standard-4 web server
-  - Apache web server with OOD portal
-  - Integration with SLURM and Jupyter
+  - JupyterHub with BatchSpawner
+  - Pre-installed scientific Python packages
 - **Features**:
-  - Web-based job submission
-  - File management interface
-  - Interactive application launcher
-  - SLURM cluster integration
-- **Access**: HTTP/HTTPS on ports 80/443
+  - Multi-user Jupyter Lab environment
+  - SLURM job submission via BatchSpawner
+  - Shared storage integration
+  - Pre-configured for bio and physical sciences
+  - Much simpler configuration than Open OnDemand
+- **Access**: HTTP on port 8000
 - **Dependencies**: Network, Storage
+- **Advantages**: Easier to configure, reliable SLURM integration, better for research computing
 
 ### Jupyter Component
 - **Purpose**: Interactive computing environment
@@ -416,7 +418,7 @@ Network (base)
 ├── Storage
 │   ├── HPC-SLURM
 │   ├── HPC-PBS
-│   ├── OOD
+│   ├── JupyterHub
 │   ├── Jupyter
 │   └── K8s
 └── VDI
@@ -425,7 +427,7 @@ Network (base)
 **Deployment Order**:
 1. Network
 2. Storage
-3. Compute components (HPC-SLURM, HPC-PBS, OOD, Jupyter, K8s, VDI)
+3. Compute components (HPC-SLURM, HPC-PBS, JupyterHub, Jupyter, K8s, VDI)
 
 **Deletion Order** (reverse):
 1. Compute components
@@ -436,7 +438,7 @@ Network (base)
 
 ### Authentication
 - **Google Cloud**: Service account or user credentials
-- **OOD Portal**: HTTP Basic Auth (default: ood/ood)
+- **JupyterHub**: PAM authentication (system users)
 - **SSH Access**: GCP metadata-based SSH keys
 - **SLURM**: MUNGE-based authentication
 
@@ -460,7 +462,7 @@ Network (base)
 ### Log Locations
 - **Startup Logs**: `/tmp/*-startup.log` on each instance
 - **SLURM Logs**: `/var/log/slurm/`
-- **OOD Logs**: `/var/log/apache2/` and `/var/log/ondemand/`
+- **JupyterHub Logs**: `/var/log/jupyterhub/`
 - **System Logs**: Standard systemd journal
 
 ## 🛠️ Customization
