@@ -60,6 +60,13 @@ check_exists() {
                 return 1
             fi
             ;;
+        jupyterhub)
+            print_status "Checking JupyterHub server..."
+            if ! gcloud compute instances describe ntt-research-jupyterhub-0 --zone=us-central1-a &>/dev/null; then
+                print_status "JupyterHub server not found in GCP"
+                return 1
+            fi
+            ;;
         *)
             print_error "Unknown component: $component"
             return 1

@@ -5,6 +5,17 @@
 *.tfstate
 *.tfstate.*
 
+# Ignore Cursor IDE files
+.cursor/
+*.cursor-*
+.cursorrules
+
+# Ignore Modules
+modules/
+
+# Ignore working terrform deployment files
+ntt-research/
+
 # Crash log files
 crash.log
 crash.*.log
@@ -34,11 +45,6 @@ terraform.rc
 .vscode/
 *.swp
 *.swo
-
-# Ignore Cursor IDE files
-.cursor/
-*.cursor-*
-.cursorrules
 
 # Ignore temporary files
 *.tmp
@@ -74,94 +80,3 @@ terraform.tfstate.d/
 # Ignore gcluster generated files
 *.yaml
 !ntt/configs/ntt-research.yaml
-
-# Ignore modules directory (Google Cluster Toolkit modules)
-modules/
-
-# Ignore toolkit directory (gcluster binary and related files)
-toolkit/
-
-# Ignore generated Terraform configurations
-ntt-research/
-
-# Ignore installation temporary files
-install_*.log
-setup_*.log
-*-setup.log
-*-post-setup.log
-
-# Ignore SSH keys
-*.pem
-*.key
-*_rsa
-*_rsa.pub
-*_ed25519
-*_ed25519.pub
-ntt/*/ssh_key*
-ntt/*/*_ssh_key*
-
-# Ignore backup files
-*.backup
-*.orig
-
-# Ignore downloaded packages and archives
-*.tar.gz
-*.zip
-*.deb
-*.rpm
-
-# Ignore local configuration overrides
-local.conf
-local.yaml
-local.yml
-*-local.*
-
-# Ignore runtime directories
-run/
-tmp/
-temp/
-
-# Ignore cache directories
-.cache/
-cache/
-
-# Ignore build artifacts
-build/
-dist/
-*.egg-info/
-
-# Ignore OS-specific files
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-
-# Ignore editor backup files
-*~
-.#*
-#*#
-
-# Ignore patch files
-*.patch
-*.diff
-
-# Ignore test output
-test-results/
-coverage/
-.coverage
-.pytest_cache/
-
-# Ignore documentation build
-docs/_build/
-site/
-
-# Ansible
-ansible/inventory/dynamic_hosts.yml
-ansible/.ansible/
-*.retry
-.vault_pass
-
-# Ansible
-ansible/inventory/dynamic_hosts.yml
-ansible/.ansible/
-*.retry
-.vault_pass

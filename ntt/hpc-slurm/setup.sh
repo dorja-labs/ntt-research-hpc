@@ -3,6 +3,12 @@
 # Exit on error
 set -e
 
+# SLURM and JupyterHub Integration Setup Script
+#
+# This script configures SLURM cluster nodes and integrates them with JupyterHub.
+# If the installation fails due to apt lock issues, you can use the retry script:
+# ./retry-slurm-install.sh
+
 # Setup logging
 LOG_FILE="/tmp/slurm_jupyterhub_setup-$(date +%Y%m%d-%H%M%S).log"
 exec 1> >(tee -a "$LOG_FILE")

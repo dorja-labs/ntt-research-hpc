@@ -25,14 +25,82 @@ check_status() {
     fi
 }
 
+# Function to wait for apt locks to be released
+wait_for_apt_locks() {
+    local max_wait=300  # 5 minutes
+    local wait_time=0
+    local check_interval=10
+
+    log "Checking for apt locks..."
+    while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
+        if [ $wait_time -ge $max_wait ]; then
+            log "✗ Timeout waiting for apt locks to be released after ${max_wait} seconds"
+            # Try to kill any hanging apt processes
+            log "Attempting to kill hanging apt processes..."
+            pkill -f apt-get || true
+            pkill -f dpkg || true
+            sleep 5
+            break
+        fi
+        log "Waiting for apt locks to be released... (${wait_time}s elapsed)"
+        sleep $check_interval
+        wait_time=$((wait_time + check_interval))
+    done
+
+    # Clean up any leftover locks
+    log "Cleaning up any leftover apt locks..."
+    rm -f /var/lib/dpkg/lock-frontend
+    rm -f /var/lib/apt/lists/lock
+    rm -f /var/cache/apt/archives/lock
+
+    log "✓ Apt locks cleared"
+}
+
+# Function to install packages with retry logic
+install_packages_with_retry() {
+    local packages="$1"
+    local max_retries=3
+    local retry_count=0
+
+    while [ $retry_count -lt $max_retries ]; do
+        log "Attempting to install packages (attempt $((retry_count + 1))/$max_retries): $packages"
+
+        # Wait for locks and update package lists
+        wait_for_apt_locks
+
+        if apt-get update -y; then
+            log "✓ Package lists updated successfully"
+
+            # Try to install packages
+            if apt-get install -y $packages; then
+                log "✓ Packages installed successfully"
+                return 0
+            else
+                log "✗ Package installation failed"
+            fi
+        else
+            log "✗ Failed to update package lists"
+        fi
+
+        retry_count=$((retry_count + 1))
+        if [ $retry_count -lt $max_retries ]; then
+            log "Retrying in 10 seconds..."
+            sleep 10
+        fi
+    done
+
+    log "✗ Failed to install packages after $max_retries attempts"
+    return 1
+}
+
 log "Starting SLURM post-setup configuration..."
 
 # --- Package Installation ---
 log "Installing required packages..."
-apt-get update -y
 
 # Install SLURM and dependencies (using native Ubuntu 24.04 packages)
-apt-get install -y nfs-common munge libmunge-dev slurm-wlm=23.11.4* slurm-client=23.11.4* slurm-wlm-basic-plugins mailutils
+REQUIRED_PACKAGES="nfs-common munge libmunge-dev slurm-wlm=23.11.4* slurm-client=23.11.4* slurm-wlm-basic-plugins mailutils"
+install_packages_with_retry "$REQUIRED_PACKAGES"
 check_status "Install required packages"
 
 # --- NFS Setup ---
